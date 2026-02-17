@@ -108,9 +108,28 @@ export async function POST(req: Request) {
                 .eq('id', logData.id);
         }
 
+        let contactId = ghlData.contact?.id;
+
         if (!ghlResponse.ok) {
-            console.error('GHL API Error:', ghlData);
-            return NextResponse.json({ success: false, error: ghlData }, { status: ghlResponse.status });
+            // Handle duplicate contact error gracefully
+            if (ghlResponse.status === 400 && ghlData.message === "This location does not allow duplicated contacts.") {
+                contactId = ghlData.meta?.contactId;
+                console.log('Duplicate contact found, updating existing ID:', contactId);
+
+                // Update existing contact to add new tags/info
+                await fetch(`${GHL_API_base}/contacts/${contactId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${GHL_Token}`,
+                        'Version': '2021-07-28',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(ghlPayload)
+                });
+            } else {
+                console.error('GHL API Error:', ghlData);
+                return NextResponse.json({ success: false, error: ghlData }, { status: ghlResponse.status });
+            }
         }
 
         // 5. Handle Opportunity Action
@@ -120,14 +139,15 @@ export async function POST(req: Request) {
         });
 
         if (mapping?.static_data?.action_type === 'opportunity') {
-            const contactId = ghlData.contact?.id;
             if (contactId) {
                 const fm = mapping.field_map || {};
                 const oppNameInput = fm.opportunityName || mapping.static_data.opportunity_name;
                 const oppValueInput = fm.opportunityCents || mapping.static_data.monetary_value;
 
-                const name = getDeepValue(payload, oppNameInput) || oppNameInput || 'New Deal';
-                const monetaryValue = Number(getDeepValue(payload, oppValueInput) || oppValueInput || 0);
+                let name = getDeepValue(payload, oppNameInput) || oppNameInput || 'New Deal';
+                name = name.replace('{{name}}', `${firstName} ${lastName}`);
+                let monetaryValue = Number(getDeepValue(payload, oppValueInput) || oppValueInput || 0);
+                if (isNaN(monetaryValue)) monetaryValue = 0;
 
                 if (!mapping.static_data.pipeline_id || !mapping.static_data.stage_id) {
                     throw new Error('Missing Pipeline ID or Stage ID for Opportunity');
@@ -138,14 +158,17 @@ export async function POST(req: Request) {
                     locationId: GHL_Location,
                     name: name,
                     status: "open",
-                    stageId: mapping.static_data.stage_id,
+                    pipelineStageId: mapping.static_data.stage_id,
                     monetaryValue: monetaryValue,
                     contactId: contactId
                 };
 
-                console.log('Creating Opportunity Payload:', oppPayload);
+                let opportunityStatus = 'not_attempted';
+                let opportunityError = null;
 
-                const oppResponse = await fetch(`${GHL_API_base}/opportunities/`, {
+                console.log('Attempting Opportunity operation for pipeline:', mapping.static_data.pipeline_id);
+
+                let oppResponse = await fetch(`${GHL_API_base}/opportunities/`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${GHL_Token}`,
@@ -155,30 +178,82 @@ export async function POST(req: Request) {
                     body: JSON.stringify(oppPayload)
                 });
 
+                // If opportunity already exists, we search and update it
                 if (!oppResponse.ok) {
-                    const oppError = await oppResponse.json();
-                    console.error('Opportunity Creation Error:', oppError);
+                    const errorData = await oppResponse.clone().json();
+                    if (oppResponse.status === 400 && errorData.message === "Can not create duplicate opportunity for the contact.") {
+                        console.log('Duplicate opportunity found, searching to update...');
+
+                        const searchRes = await fetch(`${GHL_API_base}/opportunities/search?contact_id=${contactId}&location_id=${GHL_Location}`, {
+                            headers: {
+                                'Authorization': `Bearer ${GHL_Token}`,
+                                'Version': '2021-07-28'
+                            }
+                        });
+
+                        const searchData = await searchRes.json();
+                        const existingOpp = searchData.opportunities?.find((o: any) => o.pipelineId === mapping.static_data.pipeline_id);
+
+                        if (existingOpp) {
+                            console.log('Updating existing opportunity:', existingOpp.id);
+                            oppResponse = await fetch(`${GHL_API_base}/opportunities/${existingOpp.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Authorization': `Bearer ${GHL_Token}`,
+                                    'Version': '2021-07-28',
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    pipelineStageId: mapping.static_data.stage_id,
+                                    name: name,
+                                    monetaryValue: monetaryValue
+                                })
+                            });
+                        }
+                    }
+                }
+
+                if (!oppResponse.ok) {
+                    opportunityError = await oppResponse.json();
+                    opportunityStatus = 'failed';
+                    console.error('Opportunity Creation/Update Error:', opportunityError);
                     if (logData) {
                         await supabase
                             .from('zap_incoming_webhooks')
                             .update({
-                                notes: JSON.stringify({ contact: ghlData, opportunityError: oppError }),
-                                status: 'opportunity_failed' // Specific status for partial failure
+                                notes: JSON.stringify({ contact: ghlData, opportunityError: opportunityError }),
+                                status: 'opportunity_failed'
                             })
                             .eq('id', logData.id);
                     }
                 } else {
-                    console.log('Opportunity Created Successfully');
+                    opportunityStatus = 'success';
+                    console.log('Opportunity Processed Successfully');
                     if (logData) {
                         await supabase
                             .from('zap_incoming_webhooks')
                             .update({
                                 status: 'processed',
-                                notes: JSON.stringify({ contact: ghlData, opportunity: 'created' })
+                                notes: JSON.stringify({ contact: ghlData, opportunity: 'processed' })
                             })
                             .eq('id', logData.id);
                     }
                 }
+
+                return NextResponse.json({
+                    success: true,
+                    ghl_contact_id: contactId,
+                    debug: {
+                        mapping_name: mapping?.name,
+                        action_type: mapping?.static_data?.action_type,
+                        pipeline_id: mapping?.static_data?.pipeline_id,
+                        stage_id: mapping?.static_data?.stage_id,
+                        contact_created: !!contactId,
+                        opportunity_attempted: true,
+                        opportunity_status: opportunityStatus,
+                        opportunity_error: opportunityError
+                    }
+                });
             } else {
                 console.warn('Skipping Opportunity: No Contact ID returned from GHL');
             }
@@ -197,7 +272,15 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             success: true,
-            ghl_contact_id: ghlData.contact?.id
+            ghl_contact_id: contactId,
+            debug: {
+                mapping_name: mapping?.name,
+                action_type: mapping?.static_data?.action_type,
+                pipeline_id: mapping?.static_data?.pipeline_id,
+                stage_id: mapping?.static_data?.stage_id,
+                contact_created: !!contactId,
+                opportunity_attempted: mapping?.static_data?.action_type === 'opportunity'
+            }
         });
 
     } catch (error: any) {
