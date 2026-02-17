@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 // Supabase setup for server-side
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -8,8 +9,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // GHL API Constants
 const GHL_API_base = 'https://services.leadconnectorhq.com';
-const GHL_Token = process.env.GHL_PIT_TOKEN;
+const GHL_Token = process.env.GHL_API_KEY;
 const GHL_Location = process.env.GHL_LOCATION_ID;
+const ZOOM_WEBHOOK_SECRET = process.env.ZOOM_WEBHOOK_SECRET;
 
 export async function POST(req: Request) {
     let logData: any = null;
@@ -17,6 +19,23 @@ export async function POST(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const payload = await req.json();
+
+        // 0. Handle Zoom Webhook Validation challenge
+        if (payload.event === 'endpoint.url_validation') {
+            const plainToken = payload.payload?.plainToken;
+            if (plainToken && ZOOM_WEBHOOK_SECRET) {
+                const encryptedToken = crypto
+                    .createHmac('sha256', ZOOM_WEBHOOK_SECRET)
+                    .update(plainToken)
+                    .digest('hex');
+
+                console.log('--- Zoom Webhook Validation Success ---');
+                return NextResponse.json({
+                    plainToken,
+                    encryptedToken
+                }, { status: 200 });
+            }
+        }
 
         // Auto-identify source if it's a Zoom Webinar registration
         let sourceKey = searchParams.get('source');
