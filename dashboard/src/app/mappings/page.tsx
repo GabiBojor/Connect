@@ -47,6 +47,7 @@ export default function WorkflowsPage() {
     const [opportunityCents, setOpportunityCents] = useState<string>("0");
 
     const [tagsInput, setTagsInput] = useState("Automated");
+    const [mounted, setMounted] = useState(false);
 
     // Sample Data State
     const [sampleData, setSampleData] = useState<any>(null);
@@ -319,10 +320,11 @@ export default function WorkflowsPage() {
         fetchPipelines();
         fetchZoomWebinars();
         fetchZoomMeetings();
+        setMounted(true);
     }, []);
 
     const getWebhookUrl = () => {
-        if (typeof window === 'undefined') return '';
+        if (!mounted || typeof window === 'undefined') return '';
         // Assuming backend is on same domain/port for now or handled via proxy
         return `${window.location.origin}/api/webhook?source=${sourceKey || 'YOUR_TRIGGER_ID'}`;
     };
@@ -452,381 +454,397 @@ export default function WorkflowsPage() {
                 )}
             </div>
 
-
             {/* Builder UI */}
-            {
-                isBuilderOpen && (
-                    <div className="bg-white rounded-[2rem] border border-gray-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
-                        {/* Builder Header */}
-                        <div className="bg-gray-50/50 border-b border-gray-100 p-6 flex justify-between items-center">
-                            <input
-                                value={workflowName}
-                                onChange={(e) => setWorkflowName(e.target.value)}
-                                className="text-2xl font-black bg-transparent border-none outline-none placeholder:text-gray-300 text-gray-900 w-full hover:bg-white focus:bg-white rounded-lg px-2 transition-colors py-1"
-                                placeholder="Name your workflow..."
-                            />
-                            <button onClick={resetBuilder} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
-                                <X size={24} />
-                            </button>
-                        </div>
+            {isBuilderOpen && (
+                <div className="bg-white rounded-[2rem] border border-gray-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    {/* Builder Header */}
+                    <div className="bg-gray-50/50 border-b border-gray-100 p-6 flex justify-between items-center">
+                        <input
+                            value={workflowName}
+                            onChange={(e) => setWorkflowName(e.target.value)}
+                            className="text-2xl font-black bg-transparent border-none outline-none placeholder:text-gray-300 text-gray-900 w-full hover:bg-white focus:bg-white rounded-lg px-2 transition-colors py-1"
+                            placeholder="Name your workflow..."
+                        />
+                        <button onClick={resetBuilder} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
+                            <X size={24} />
+                        </button>
+                    </div>
 
-                        <div className="flex h-[800px]">
-                            {/* Main Canvas */}
-                            <div className="flex-1 bg-gray-50/50 p-10 overflow-y-auto custom-scrollbar relative">
-                                {/* Connectors */}
-                                <div className="absolute left-[59px] top-20 bottom-0 w-1 bg-gray-200 z-0"></div>
+                    <div className="flex h-[800px]">
+                        {/* Main Canvas */}
+                        <div className="flex-1 bg-white canvas-grid p-10 overflow-y-auto custom-scrollbar relative flex flex-col items-center">
+                            {/* Connectors */}
+                            <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-gray-200/50 z-0 -translate-x-1/2"></div>
 
-                                {/* Step 1: Trigger */}
-                                <div className={`relative z-10 transition-all duration-300 ${step === 1 ? 'scale-100' : 'scale-95 opacity-80 hover:opacity-100'}`}>
-                                    <div
-                                        className={`bg-white rounded-2xl border-2 p-6 shadow-sm transition-all cursor-pointer ${step === 1 ? 'border-black ring-4 ring-black/5 shadow-xl' : 'border-gray-200 hover:border-gray-300'}`}
-                                        onClick={() => setStep(1)}
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 bg-white border border-gray-200 rounded-xl flex items-center justify-center shadow-sm text-2xl">
-                                                {triggerType === 'zoom' ? <Video className="text-blue-600" size={24} /> : '⚡'}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <h3 className="font-bold text-gray-900 text-lg">1. Trigger</h3>
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setTriggerType('webhook'); }}
-                                                            className={`text-[10px] font-bold uppercase py-1 px-2 rounded border transition-all ${triggerType === 'webhook' ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-200'}`}
-                                                        >
-                                                            Webhook
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setTriggerType('zoom'); }}
-                                                            className={`text-[10px] font-bold uppercase py-1 px-2 rounded border transition-all ${triggerType === 'zoom' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-400 border-gray-200'}`}
-                                                        >
-                                                            Zoom
-                                                        </button>
-                                                    </div>
+                            {/* Step 1: Trigger */}
+                            <div className={`relative z-10 w-full max-w-lg transition-all duration-500 mb-4 ${step === 1 ? 'scale-100 shadow-2xl' : 'scale-[0.98] opacity-60 hover:opacity-100'}`}>
+                                <div
+                                    className={`bg-white rounded-3xl border-2 p-5 transition-all cursor-pointer ${step === 1 ? 'border-orange-500 ring-8 ring-orange-500/5 shadow-orange-100' : 'border-gray-200 hover:border-gray-300 shadow-md'}`}
+                                    onClick={() => setStep(1)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg ${triggerType === 'zoom' ? 'bg-blue-600 text-white' : 'bg-orange-600 text-white'}`}>
+                                            {triggerType === 'zoom' ? <Video size={24} /> : <Zap size={24} fill="currentColor" />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black bg-orange-100 text-orange-600 px-2 py-0.5 rounded-md uppercase tracking-tighter">Step 1</span>
+                                                    <h3 className="font-black text-gray-900 text-base">Trigger</h3>
                                                 </div>
-                                                <p className="text-gray-500 text-sm mb-4">
-                                                    {triggerType === 'webhook' ? 'Start workflow when data is received.' : 'Trigger when someone registers for a webinar.'}
-                                                </p>
-
-                                                {step === 1 && (
-                                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                                                        {triggerType === 'webhook' ? (
-                                                            <>
-                                                                <div>
-                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Trigger ID</label>
-                                                                    <input
-                                                                        value={sourceKey}
-                                                                        onChange={(e) => setSourceKey(e.target.value)}
-                                                                        placeholder="e.g. contact_form_1"
-                                                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors"
-                                                                    />
-                                                                </div>
-
-                                                                <div>
-                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Webhook URL</label>
-                                                                    <div className="flex gap-2">
-                                                                        <div className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-600 truncate">
-                                                                            {getWebhookUrl()}
-                                                                        </div>
-                                                                        <button
-                                                                            onClick={() => navigator.clipboard.writeText(getWebhookUrl())}
-                                                                            className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-3 rounded-lg font-bold"
-                                                                            title="Copy URL"
-                                                                        >
-                                                                            <Copy size={16} />
-                                                                        </button>
-                                                                    </div>
-                                                                    <p className="text-[10px] text-gray-400 mt-2">
-                                                                        Send a <b>POST</b> request to this URL to trigger the workflow.
-                                                                    </p>
-                                                                </div>
-                                                            </>
-                                                        ) : (
-                                                            <div className="space-y-4">
-                                                                <div>
-                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Zoom Event Type</label>
-                                                                    <div className="grid grid-cols-2 gap-2">
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); setZoomEventType('webinar'); setSourceKey(""); }}
-                                                                            className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all ${zoomEventType === 'webinar' ? 'bg-blue-50 border-blue-200 text-blue-700 ring-2 ring-blue-500/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
-                                                                        >
-                                                                            Webinar Registration
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); setZoomEventType('meeting'); setSourceKey(""); }}
-                                                                            className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all ${zoomEventType === 'meeting' ? 'bg-blue-50 border-blue-200 text-blue-700 ring-2 ring-blue-500/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
-                                                                        >
-                                                                            Meeting Registration
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div>
-                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">
-                                                                        Select {zoomEventType.charAt(0).toUpperCase() + zoomEventType.slice(1)}
-                                                                    </label>
-                                                                    <select
-                                                                        value={sourceKey.replace(`zoom_${zoomEventType}_`, '')}
-                                                                        onChange={(e) => {
-                                                                            if (e.target.value) {
-                                                                                setSourceKey(`zoom_${zoomEventType}_${e.target.value}`);
-                                                                                const list = zoomEventType === 'webinar' ? webinars : meetings;
-                                                                                const item = list.find((x: any) => String(x.id) === e.target.value);
-                                                                                if (item && workflowName === "Untitled Workflow") {
-                                                                                    setWorkflowName(`Reg: ${item.topic}`);
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-blue-500"
-                                                                    >
-                                                                        <option value="">
-                                                                            {zoomEventType === 'webinar' ? (isLoadingWebinars ? 'Loading webinars...' : 'Select a Webinar...') : (isLoadingMeetings ? 'Loading meetings...' : 'Select a Meeting...')}
-                                                                        </option>
-                                                                        {(zoomEventType === 'webinar' ? webinars : meetings).map((item: any, idx: number) => (
-                                                                            <option key={`${item.id}-${idx}`} value={item.id}>{item.topic} ({new Date(item.start_time).toLocaleDateString()})</option>
-                                                                        ))}
-                                                                    </select>
-                                                                    {(zoomEventType === 'webinar' ? webinars : meetings).length === 0 && (zoomEventType === 'webinar' ? !isLoadingWebinars : !isLoadingMeetings) && (
-                                                                        <p className="text-[10px] text-amber-600 mt-2 font-bold">
-                                                                            No upcoming {zoomEventType}s found with registration enabled.
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        <button
-                                                            onClick={fetchLatestSample}
-                                                            disabled={isLoadingSample || !sourceKey}
-                                                            className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                                                        >
-                                                            {isLoadingSample ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />}
-                                                            Test Trigger
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <div className="flex bg-gray-100 p-1 rounded-lg gap-1 border border-gray-100">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setTriggerType('webhook'); }}
+                                                        className={`text-[9px] font-black uppercase py-1 px-3 rounded-md transition-all ${triggerType === 'webhook' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                                    >
+                                                        Webhook
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setTriggerType('zoom'); }}
+                                                        className={`text-[9px] font-black uppercase py-1 px-3 rounded-md transition-all ${triggerType === 'zoom' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                                    >
+                                                        Zoom
+                                                    </button>
+                                                </div>
                                             </div>
+                                            <p className="text-gray-400 text-xs font-medium">
+                                                {triggerType === 'webhook' ? 'External Webhook Service' : 'Zoom Event Automator'}
+                                            </p>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Connector Arrow */}
-                                <div className="flex justify-start pl-[22px] py-4 relative z-10">
-                                    <ArrowDown className="text-gray-300" size={24} />
-                                </div>
+                                    {step === 1 && (
+                                        <div className="mt-5 pt-5 border-t border-gray-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 text-left">
+                                            {triggerType === 'webhook' ? (
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block tracking-widest">Trigger ID</label>
+                                                        <input
+                                                            value={sourceKey}
+                                                            onChange={(e) => setSourceKey(e.target.value)}
+                                                            placeholder="e.g. contact_form_1"
+                                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono font-bold text-gray-700 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                                                        />
+                                                    </div>
 
-                                {/* Step 2: Action */}
-                                <div className={`relative z-10 transition-all duration-300 ${step === 2 ? 'scale-100' : 'scale-95 opacity-80 hover:opacity-100'}`}>
-                                    <div
-                                        className={`bg-white rounded-2xl border-2 p-6 shadow-sm transition-all cursor-pointer ${step === 2 ? 'border-black ring-4 ring-black/5 shadow-xl' : 'border-gray-200 hover:border-gray-300'}`}
-                                        onClick={() => setStep(2)}
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg text-white">
-                                                <Database size={24} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <h3 className="font-bold text-gray-900 text-lg">2. Action</h3>
-                                                    <div className="flex gap-2">
-                                                        <select
-                                                            value={actionType}
-                                                            onChange={(e) => setActionType(e.target.value as any)}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            className="bg-blue-50 text-blue-700 text-xs font-bold uppercase py-1 px-2 rounded outline-none border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors"
-                                                        >
-                                                            <option value="contact">Create Contact</option>
-                                                            <option value="opportunity">Create Opportunity</option>
-                                                        </select>
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block tracking-widest">Webhook URL</label>
+                                                        <div className="flex gap-2">
+                                                            <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[11px] font-mono text-gray-500 truncate">
+                                                                {getWebhookUrl()}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => navigator.clipboard.writeText(getWebhookUrl())}
+                                                                className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 rounded-xl font-bold transition-all shadow-sm"
+                                                                title="Copy URL"
+                                                            >
+                                                                <Copy size={16} />
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-400 mt-2 italic px-1 font-medium">
+                                                            Send a <b>POST</b> request with JSON payload to this endpoint.
+                                                        </p>
                                                     </div>
                                                 </div>
-                                                <p className="text-gray-500 text-sm mb-4">
-                                                    {actionType === 'contact' ? 'Create or update a contact in GHL.' : 'Create an opportunity in a specific pipeline.'}
-                                                </p>
+                                            ) : (
+                                                <div className="space-y-5">
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block tracking-widest text-center">Connection Type</label>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setZoomEventType('webinar'); setSourceKey(""); }}
+                                                                className={`py-3 px-3 rounded-xl border-2 text-xs font-black transition-all ${zoomEventType === 'webinar' ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-sm' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}
+                                                            >
+                                                                Webinar
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setZoomEventType('meeting'); setSourceKey(""); }}
+                                                                className={`py-3 px-3 rounded-xl border-2 text-xs font-black transition-all ${zoomEventType === 'meeting' ? 'bg-blue-50 border-blue-600 text-blue-700 shadow-sm' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}
+                                                            >
+                                                                Meeting
+                                                            </button>
+                                                        </div>
+                                                    </div>
 
-                                                {step === 2 && (
-                                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-                                                        {!sampleData && (
-                                                            <div className="bg-amber-50 border border-amber-100 text-amber-600 text-xs font-bold p-3 rounded-lg mb-4 flex items-center gap-2">
-                                                                ⚠️ Please test the trigger step first to get sample data.
-                                                            </div>
+                                                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 shadow-inner">
+                                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block tracking-widest">
+                                                            Linked {zoomEventType}
+                                                        </label>
+                                                        <select
+                                                            value={sourceKey.replace(`zoom_${zoomEventType}_`, '')}
+                                                            onChange={(e) => {
+                                                                if (e.target.value) {
+                                                                    setSourceKey(`zoom_${zoomEventType}_${e.target.value}`);
+                                                                    const list = zoomEventType === 'webinar' ? webinars : meetings;
+                                                                    const item = list.find((x: any) => String(x.id) === e.target.value);
+                                                                    if (item && workflowName === "Untitled Workflow") {
+                                                                        setWorkflowName(`Reg: ${item.topic}`);
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:border-blue-500 shadow-sm"
+                                                        >
+                                                            <option value="">
+                                                                {zoomEventType === 'webinar' ? (isLoadingWebinars ? 'Loading...' : 'Choose a Webinar...') : (isLoadingMeetings ? 'Loading...' : 'Choose a Meeting...')}
+                                                            </option>
+                                                            {(zoomEventType === 'webinar' ? webinars : meetings).map((item: any, idx: number) => (
+                                                                <option key={`${item.id}-${idx}`} value={item.id}>{item.topic}</option>
+                                                            ))}
+                                                        </select>
+                                                        {(zoomEventType === 'webinar' ? webinars : meetings).length === 0 && (zoomEventType === 'webinar' ? !isLoadingWebinars : !isLoadingMeetings) && (
+                                                            <p className="text-[10px] text-amber-600 mt-2 font-black uppercase text-center tracking-tighter">
+                                                                No upcoming registration enabled {zoomEventType}s
+                                                            </p>
                                                         )}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                                        <div className="space-y-4">
-                                                            <MappingInput
-                                                                label="Email"
-                                                                value={emailPath}
-                                                                onChange={setEmailPath}
-                                                                options={mappingOptions}
-                                                            />
-                                                            <MappingInput
-                                                                label="First Name"
-                                                                value={firstNamePath}
-                                                                onChange={setFirstNamePath}
-                                                                options={mappingOptions}
-                                                            />
-                                                            <MappingInput
-                                                                label="Last Name"
-                                                                value={lastNamePath}
-                                                                onChange={setLastNamePath}
-                                                                options={mappingOptions}
-                                                            />
-                                                            <MappingInput
-                                                                label="Phone"
-                                                                value={phonePath}
-                                                                onChange={setPhonePath}
-                                                                options={mappingOptions}
-                                                            />
+                                            <button
+                                                onClick={fetchLatestSample}
+                                                disabled={isLoadingSample || !sourceKey}
+                                                className="w-full bg-black hover:bg-gray-800 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 shadow-xl"
+                                            >
+                                                {isLoadingSample ? <RefreshCw className="animate-spin" size={20} /> : <Play size={20} fill="currentColor" />}
+                                                Test Step
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
 
-                                                            <div className="pt-4 border-t border-gray-100">
-                                                                <label className="text-[10px] font-bold text-purple-600 uppercase mb-2 block flex items-center gap-1">
-                                                                    <Tag size={12} /> Add Tags
-                                                                </label>
-                                                                <input
-                                                                    value={tagsInput}
-                                                                    onChange={(e) => setTagsInput(e.target.value)}
-                                                                    placeholder="e.g. Lead, Automated"
-                                                                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-purple-500 transition-colors"
-                                                                />
+                            <div className="py-4 relative z-10 flex flex-col items-center group">
+                                <div className="w-[1px] h-8 bg-gray-200 group-hover:bg-blue-300 transition-colors"></div>
+                                <div className="w-10 h-10 rounded-full bg-white border-2 border-gray-100 flex items-center justify-center text-gray-400 shadow-md hover:border-blue-500 hover:text-blue-600 transition-all cursor-pointer hover:scale-110 active:scale-90 relative z-20">
+                                    <Plus size={20} className="hover:rotate-90 transition-transform duration-300" />
+                                </div>
+                                <div className="w-[1px] h-8 bg-gray-200 group-hover:bg-blue-300 transition-colors"></div>
+                            </div>
+
+                            {/* Step 2: Action */}
+                            <div className={`relative z-10 w-full max-w-lg transition-all duration-500 pb-20 ${step === 2 ? 'scale-100 shadow-2xl' : 'scale-[0.98] opacity-60 hover:opacity-100'}`}>
+                                <div
+                                    className={`bg-white rounded-3xl border-2 p-5 transition-all cursor-pointer ${step === 2 ? 'border-blue-600 ring-8 ring-blue-500/5 shadow-blue-100' : 'border-gray-200 hover:border-gray-300 shadow-md'}`}
+                                    onClick={() => setStep(2)}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg text-white">
+                                            <Database size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-md uppercase tracking-tighter">Step 2</span>
+                                                    <h3 className="font-black text-gray-900 text-base">Action</h3>
+                                                </div>
+                                                <div className="flex bg-blue-50 p-1 rounded-lg gap-1 border border-blue-100">
+                                                    <select
+                                                        value={actionType}
+                                                        onChange={(e) => setActionType(e.target.value as any)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="bg-transparent text-blue-700 text-[9px] font-black uppercase py-0.5 px-2 rounded outline-none cursor-pointer hover:bg-white rounded-md transition-colors"
+                                                    >
+                                                        <option value="contact">Create Contact</option>
+                                                        <option value="opportunity">Create Opportunity</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <p className="text-gray-400 text-xs font-medium">GoHighLevel CRM Integration</p>
+                                        </div>
+                                    </div>
+
+                                    {step === 2 && (
+                                        <div className="mt-5 pt-5 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300 text-left">
+                                            {!sampleData && (
+                                                <div className="bg-amber-50 border border-amber-100 text-amber-600 text-[10px] font-black p-4 rounded-xl mb-6 flex items-center gap-3 uppercase tracking-tighter">
+                                                    <div className="w-6 h-6 bg-amber-200 rounded-full flex items-center justify-center">
+                                                        <Zap size={12} className="fill-amber-600 text-amber-600" />
+                                                    </div>
+                                                    Test trigger step to enable mapping
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <MappingInput
+                                                        label="First Name"
+                                                        value={firstNamePath}
+                                                        onChange={setFirstNamePath}
+                                                        options={mappingOptions}
+                                                        active={activeFieldForMapping === 'firstName'}
+                                                        onFocus={() => setActiveFieldForMapping('firstName')}
+                                                    />
+                                                    <MappingInput
+                                                        label="Last Name"
+                                                        value={lastNamePath}
+                                                        onChange={setLastNamePath}
+                                                        options={mappingOptions}
+                                                        active={activeFieldForMapping === 'lastName'}
+                                                        onFocus={() => setActiveFieldForMapping('lastName')}
+                                                    />
+                                                </div>
+                                                <MappingInput
+                                                    label="Email"
+                                                    value={emailPath}
+                                                    onChange={setEmailPath}
+                                                    options={mappingOptions}
+                                                    active={activeFieldForMapping === 'email'}
+                                                    onFocus={() => setActiveFieldForMapping('email')}
+                                                />
+                                                <MappingInput
+                                                    label="Phone"
+                                                    value={phonePath}
+                                                    onChange={setPhonePath}
+                                                    options={mappingOptions}
+                                                    active={activeFieldForMapping === 'phone'}
+                                                    onFocus={() => setActiveFieldForMapping('phone')}
+                                                />
+
+                                                <div className="pt-4 border-t border-gray-100">
+                                                    <label className="text-[10px] font-black text-purple-600 uppercase mb-2 block flex items-center gap-2 tracking-widest px-1">
+                                                        <Tag size={14} /> Add Tags (Comma Separated)
+                                                    </label>
+                                                    <input
+                                                        value={tagsInput}
+                                                        onChange={(e) => setTagsInput(e.target.value)}
+                                                        placeholder="e.g. Lead, Zoom Webinar"
+                                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-purple-500 focus:bg-white transition-all shadow-sm"
+                                                    />
+                                                </div>
+
+                                                {actionType === 'opportunity' && (
+                                                    <div className="pt-4 border-t border-gray-100 space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
+                                                        <div className="bg-orange-50/20 border-2 border-dashed border-orange-100 rounded-3xl p-5">
+                                                            <div className="text-[10px] font-black text-orange-600 uppercase mb-4 flex items-center gap-2 tracking-[0.1em]">
+                                                                <Database size={14} fill="currentColor" /> Opportunity Details
                                                             </div>
 
-                                                            {actionType === 'opportunity' && (
-                                                                <div className="pt-4 border-t border-gray-100 space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
-                                                                    <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
-                                                                        <div className="text-xs font-bold text-orange-700 uppercase mb-2 flex items-center gap-1">
-                                                                            <Zap size={12} fill="currentColor" /> Opportunity Settings
-                                                                        </div>
-
-                                                                        <div className="space-y-3">
-                                                                            <div>
-                                                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Pipeline</label>
-                                                                                <select
-                                                                                    value={selectedPipelineId}
-                                                                                    onChange={(e) => {
-                                                                                        setSelectedPipelineId(e.target.value);
-                                                                                        setSelectedStageId(""); // Reset stage
-                                                                                    }}
-                                                                                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-orange-500"
-                                                                                >
-                                                                                    <option value="">Select Pipeline...</option>
-                                                                                    {pipelines.map((p: any) => (
-                                                                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                                                                    ))}
-                                                                                </select>
-                                                                            </div>
-
-                                                                            {selectedPipelineId && (
-                                                                                <div>
-                                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Stage</label>
-                                                                                    <select
-                                                                                        value={selectedStageId}
-                                                                                        onChange={(e) => setSelectedStageId(e.target.value)}
-                                                                                        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-orange-500"
-                                                                                    >
-                                                                                        <option value="">Select Stage...</option>
-                                                                                        {pipelines.find((p: any) => p.id === selectedPipelineId)?.stages.map((s: any) => (
-                                                                                            <option key={s.id} value={s.id}>{s.name}</option>
-                                                                                        ))}
-                                                                                    </select>
-                                                                                </div>
-                                                                            )}
-
-                                                                            <div>
-                                                                                <MappingInput
-                                                                                    label="Opp Name"
-                                                                                    value={opportunityName}
-                                                                                    onChange={setOpportunityName}
-                                                                                    // No options passed here to allow custom template text
-                                                                                    active={activeFieldForMapping === 'opportunityName'}
-                                                                                    onFocus={() => setActiveFieldForMapping('opportunityName')}
-                                                                                />
-                                                                            </div>
-
-                                                                            <div>
-                                                                                <MappingInput
-                                                                                    label="Value (in cents)"
-                                                                                    value={opportunityCents}
-                                                                                    onChange={setOpportunityCents}
-                                                                                    options={mappingOptions}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
+                                                            <div className="space-y-4">
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div>
+                                                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block tracking-wide">Pipeline</label>
+                                                                        <select
+                                                                            value={selectedPipelineId}
+                                                                            onChange={(e) => {
+                                                                                setSelectedPipelineId(e.target.value);
+                                                                                setSelectedStageId(""); // Reset stage
+                                                                            }}
+                                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-orange-500 shadow-sm transition-all"
+                                                                        >
+                                                                            <option value="">Select Pipeline</option>
+                                                                            {pipelines.map((p: any) => (
+                                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block tracking-wide">Stage</label>
+                                                                        <select
+                                                                            value={selectedStageId}
+                                                                            onChange={(e) => setSelectedStageId(e.target.value)}
+                                                                            disabled={!selectedPipelineId}
+                                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-orange-500 shadow-sm disabled:opacity-50 transition-all"
+                                                                        >
+                                                                            <option value="">Select Stage</option>
+                                                                            {pipelines.find((p: any) => p.id === selectedPipelineId)?.stages.map((s: any) => (
+                                                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                                                            ))}
+                                                                        </select>
                                                                     </div>
                                                                 </div>
-                                                            )}
+
+                                                                <MappingInput
+                                                                    label="Opp Name"
+                                                                    value={opportunityName}
+                                                                    onChange={setOpportunityName}
+                                                                    options={mappingOptions}
+                                                                    active={activeFieldForMapping === 'opportunityName'}
+                                                                    onFocus={() => setActiveFieldForMapping('opportunityName')}
+                                                                />
+
+                                                                <MappingInput
+                                                                    label="Value (Cents)"
+                                                                    value={opportunityCents}
+                                                                    onChange={setOpportunityCents}
+                                                                    options={mappingOptions}
+                                                                    active={activeFieldForMapping === 'opportunityCents'}
+                                                                    onFocus={() => setActiveFieldForMapping('opportunityCents')}
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-
-                                {/* Save Button */}
-                                <div className="mt-8 flex justify-end">
-                                    <button
-                                        onClick={handleSave}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-blue-200 active:scale-95 transition-all flex items-center gap-2"
-                                    >
-                                        <Save size={20} />
-                                        Publish Workflow
-                                    </button>
-                                </div>
-
-                            </div>
-
-                            {/* Right Sidebar: Data Inspector */}
-                            <div className="w-80 border-l border-gray-200 bg-white flex flex-col">
-                                <div className="p-5 border-b border-gray-100">
-                                    <h4 className="font-black text-sm uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                                        <Database size={16} /> Received Data
-                                    </h4>
-                                </div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-                                    {sampleData ? (
-                                        <div className="space-y-1">
-                                            <div className="text-[10px] text-green-600 font-bold bg-green-50 px-3 py-2 rounded-lg mb-2 mx-1 border border-green-100 flex items-center gap-2">
-                                                <CheckCircle size={12} />
-                                                Select fields to insert:
-                                            </div>
-                                            <RecursiveObjectRenderer data={sampleData} onSelect={handleSelectPath} />
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-64 text-center text-gray-400 p-4">
-                                            <Zap size={32} className="mb-2 opacity-20" />
-                                            <p className="text-xs font-medium">Test the trigger to see data here.</p>
-                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
+
+                        {/* Right Sidebar: Data Inspector */}
+                        <div className="w-80 border-l border-gray-100 bg-white flex flex-col">
+                            <div className="p-6 border-b border-gray-50">
+                                <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2">
+                                    <Database size={14} /> Data Inspector
+                                </h4>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+                                {sampleData ? (
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] text-blue-600 font-bold bg-blue-50/50 px-3 py-3 rounded-xl mb-3 border border-blue-100/50 flex items-center gap-2">
+                                            <CheckCircle size={14} />
+                                            Tap any field to map it
+                                        </div>
+                                        <RecursiveObjectRenderer data={sampleData} onSelect={handleSelectPath} />
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-[500px] text-center text-gray-300 p-8">
+                                        <Zap size={40} className="mb-6 opacity-10" />
+                                        <p className="text-[11px] font-bold leading-relaxed mb-1">
+                                            No data detected yet
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 font-medium">Test the trigger step to start.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-4 border-t border-gray-50 bg-gray-50/30">
+                                <button
+                                    onClick={handleSave}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-blue-500/10 active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <Save size={18} />
+                                    Publish Automation
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
             {/* List View */}
-            {
-                !isBuilderOpen && (
-                    isLoading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
-                            {[1, 2].map(i => <div key={i} className="h-40 bg-gray-100 rounded-2xl" />)}
-                        </div>
-                    ) : workflows.length === 0 ? (
-                        <EmptyState onAdd={() => {
-                            setSourceKey(`trigger_${Math.random().toString(36).substr(2, 6)}`);
-                            setIsBuilderOpen(true);
-                        }} />
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {workflows.map(w => (
-                                <WorkflowCard key={w.id} w={w} onDelete={() => handleDelete(w.id)} onEdit={() => editWorkflow(w)} />
-                            ))}
-                        </div>
-                    )
-                )}
+            {!isBuilderOpen && (
+                isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
+                        {[1, 2].map(i => <div key={i} className="h-40 bg-gray-100 rounded-2xl" />)}
+                    </div>
+                ) : workflows.length === 0 ? (
+                    <EmptyState onAdd={() => {
+                        setSourceKey(`trigger_${Math.random().toString(36).substr(2, 6)}`);
+                        setIsBuilderOpen(true);
+                    }} />
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {workflows.map(w => (
+                            <WorkflowCard key={w.id} w={w} onDelete={() => handleDelete(w.id)} onEdit={() => editWorkflow(w)} />
+                        ))}
+                    </div>
+                )
+            )}
         </div>
     );
 }
+
 
 // Sub-components
 
@@ -850,9 +868,9 @@ function MappingInput({ label, value, onChange, active, onFocus, options }: any)
                             </option>
                         ))}
                     </select>
-                    <div className="absolute right-3 top-[26px] pointer-events-none text-gray-400">
+                    <span className="absolute right-3 top-[26px] pointer-events-none text-gray-400">
                         <ArrowDown size={14} />
-                    </div>
+                    </span>
                 </label>
             </div>
         );
@@ -860,7 +878,7 @@ function MappingInput({ label, value, onChange, active, onFocus, options }: any)
 
     return (
         <div className={`relative transition-all duration-200 group`}>
-            <label className="block cursor-pointer" onClick={onFocus}>
+            <div className="block cursor-pointer" onClick={onFocus}>
                 <span className={`text-[10px] font-bold mb-1 block uppercase flex justify-between ${active ? 'text-blue-600' : 'text-gray-400'}`}>
                     {label}
                     {active && <span className="text-[9px] bg-blue-100 text-blue-600 px-2 rounded animate-pulse">Selecting...</span>}
@@ -876,9 +894,9 @@ function MappingInput({ label, value, onChange, active, onFocus, options }: any)
                             : 'bg-white border-gray-200 hover:border-gray-300 focus:border-gray-400'
                             }`}
                     />
-                    {active && <div className="absolute right-2 top-2 text-blue-500 text-[10px] bg-white px-1 font-bold shadow-sm rounded border border-blue-100">Active</div>}
+                    {active && <span className="absolute right-2 top-2 text-blue-500 text-[10px] bg-white px-1 font-bold shadow-sm rounded border border-blue-100">Active</span>}
                 </div>
-            </label>
+            </div>
         </div>
     );
 }
@@ -890,7 +908,7 @@ function RecursiveObjectRenderer({ data, parentPath = "", onSelect }: { data: an
                 onClick={() => onSelect(parentPath, data)}
                 className="flex items-center gap-2 group hover:bg-blue-50 px-3 py-2 rounded-lg w-full text-left transition-colors border border-transparent hover:border-blue-100 mb-1"
             >
-                <div className="w-1 h-3 bg-gray-200 group-hover:bg-blue-400 rounded-full transition-colors shrink-0" />
+                <span className="w-1 h-3 bg-gray-200 group-hover:bg-blue-400 rounded-full transition-colors shrink-0" />
                 <span className="font-mono text-xs text-blue-600 font-bold group-hover:underline break-all truncate">{String(data)}</span>
                 <span className="text-[10px] text-gray-300 ml-auto font-mono shrink-0">{parentPath}</span>
             </button>
@@ -983,3 +1001,4 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         </div>
     );
 }
+
