@@ -12,8 +12,9 @@ import {
     AlertCircle
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function IntegrationsPage() {
+function IntegrationsContent() {
     const [zoomConnection, setZoomConnection] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const supabase = createClient();
@@ -171,5 +172,17 @@ export default function IntegrationsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function IntegrationsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[400px]">
+                <RefreshCw className="animate-spin text-gray-400" size={32} />
+            </div>
+        }>
+            <IntegrationsContent />
+        </Suspense>
     );
 }
