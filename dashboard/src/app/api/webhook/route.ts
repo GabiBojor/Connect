@@ -12,6 +12,8 @@ const GHL_Token = process.env.GHL_PIT_TOKEN;
 const GHL_Location = process.env.GHL_LOCATION_ID;
 
 export async function POST(req: Request) {
+    let logData: any = null;
+
     try {
         const { searchParams } = new URL(req.url);
         const payload = await req.json();
@@ -28,7 +30,7 @@ export async function POST(req: Request) {
             .maybeSingle();
 
         // 2. Log to Supabase
-        const { data: logData, error: dbError } = await supabase
+        const { data: insertedLog, error: dbError } = await supabase
             .from('zap_incoming_webhooks')
             .insert({
                 source: sourceKey,
@@ -37,6 +39,8 @@ export async function POST(req: Request) {
             })
             .select()
             .single();
+
+        logData = insertedLog;
 
         if (dbError) console.error('Supabase Log Error:', dbError);
 
@@ -67,7 +71,7 @@ export async function POST(req: Request) {
         }
 
         if (!email) {
-            return NextResponse.json({ error: 'No email found in payload' }, { status: 400 });
+            throw new Error('No email found in payload');
         }
 
         // 4. Call GHL API
@@ -110,8 +114,13 @@ export async function POST(req: Request) {
         }
 
         // 5. Handle Opportunity Action
+        console.log('Checking Opportunity Action:', {
+            actionType: mapping?.static_data?.action_type,
+            staticData: mapping?.static_data
+        });
+
         if (mapping?.static_data?.action_type === 'opportunity') {
-            const contactId = ghlData.contact?.id; // Assuming GHL returns { contact: { id: ... } }
+            const contactId = ghlData.contact?.id;
             if (contactId) {
                 const fm = mapping.field_map || {};
                 const oppNameInput = fm.opportunityName || mapping.static_data.opportunity_name;
@@ -119,6 +128,10 @@ export async function POST(req: Request) {
 
                 const name = getDeepValue(payload, oppNameInput) || oppNameInput || 'New Deal';
                 const monetaryValue = Number(getDeepValue(payload, oppValueInput) || oppValueInput || 0);
+
+                if (!mapping.static_data.pipeline_id || !mapping.static_data.stage_id) {
+                    throw new Error('Missing Pipeline ID or Stage ID for Opportunity');
+                }
 
                 const oppPayload = {
                     pipelineId: mapping.static_data.pipeline_id,
@@ -130,7 +143,7 @@ export async function POST(req: Request) {
                     contactId: contactId
                 };
 
-                console.log('Creating Opportunity:', oppPayload);
+                console.log('Creating Opportunity Payload:', oppPayload);
 
                 const oppResponse = await fetch(`${GHL_API_base}/opportunities/`, {
                     method: 'POST',
@@ -144,19 +157,41 @@ export async function POST(req: Request) {
 
                 if (!oppResponse.ok) {
                     const oppError = await oppResponse.json();
-                    console.error('Available Pipelines Error:', oppError);
-                    // We don't fail the whole request since contact was created, but we log it
+                    console.error('Opportunity Creation Error:', oppError);
                     if (logData) {
                         await supabase
                             .from('zap_incoming_webhooks')
                             .update({
-                                notes: JSON.stringify({ contact: ghlData, opportunityError: oppError })
+                                notes: JSON.stringify({ contact: ghlData, opportunityError: oppError }),
+                                status: 'opportunity_failed' // Specific status for partial failure
                             })
                             .eq('id', logData.id);
                     }
                 } else {
                     console.log('Opportunity Created Successfully');
+                    if (logData) {
+                        await supabase
+                            .from('zap_incoming_webhooks')
+                            .update({
+                                status: 'processed',
+                                notes: JSON.stringify({ contact: ghlData, opportunity: 'created' })
+                            })
+                            .eq('id', logData.id);
+                    }
                 }
+            } else {
+                console.warn('Skipping Opportunity: No Contact ID returned from GHL');
+            }
+        } else {
+            // If not an opportunity action, mark as processed (contact created/updated)
+            if (logData) {
+                await supabase
+                    .from('zap_incoming_webhooks')
+                    .update({
+                        status: 'processed',
+                        notes: JSON.stringify({ contact: ghlData })
+                    })
+                    .eq('id', logData.id);
             }
         }
 
@@ -167,9 +202,21 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('Webhook Error:', error);
+
+        if (logData) {
+            await supabase
+                .from('zap_incoming_webhooks')
+                .update({
+                    status: 'failed',
+                    notes: JSON.stringify({ error: error.message })
+                })
+                .eq('id', logData.id);
+        }
+
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
 
 function getDeepValue(obj: any, path: string) {
     if (!path) return undefined;
