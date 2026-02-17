@@ -97,13 +97,67 @@ export async function POST(req: Request) {
         if (logData) {
             await supabase
                 .from('zap_incoming_webhooks')
-                .update({ status: finalStatus })
+                .update({
+                    status: finalStatus,
+                    notes: !ghlResponse.ok ? JSON.stringify(ghlData) : null
+                })
                 .eq('id', logData.id);
         }
 
         if (!ghlResponse.ok) {
             console.error('GHL API Error:', ghlData);
             return NextResponse.json({ success: false, error: ghlData }, { status: ghlResponse.status });
+        }
+
+        // 5. Handle Opportunity Action
+        if (mapping?.static_data?.action_type === 'opportunity') {
+            const contactId = ghlData.contact?.id; // Assuming GHL returns { contact: { id: ... } }
+            if (contactId) {
+                const fm = mapping.field_map || {};
+                const oppNameInput = fm.opportunityName || mapping.static_data.opportunity_name;
+                const oppValueInput = fm.opportunityCents || mapping.static_data.monetary_value;
+
+                const name = getDeepValue(payload, oppNameInput) || oppNameInput || 'New Deal';
+                const monetaryValue = Number(getDeepValue(payload, oppValueInput) || oppValueInput || 0);
+
+                const oppPayload = {
+                    pipelineId: mapping.static_data.pipeline_id,
+                    locationId: GHL_Location,
+                    name: name,
+                    status: "open",
+                    stageId: mapping.static_data.stage_id,
+                    monetaryValue: monetaryValue,
+                    contactId: contactId
+                };
+
+                console.log('Creating Opportunity:', oppPayload);
+
+                const oppResponse = await fetch(`${GHL_API_base}/opportunities/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${GHL_Token}`,
+                        'Version': '2021-07-28',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(oppPayload)
+                });
+
+                if (!oppResponse.ok) {
+                    const oppError = await oppResponse.json();
+                    console.error('Available Pipelines Error:', oppError);
+                    // We don't fail the whole request since contact was created, but we log it
+                    if (logData) {
+                        await supabase
+                            .from('zap_incoming_webhooks')
+                            .update({
+                                notes: JSON.stringify({ contact: ghlData, opportunityError: oppError })
+                            })
+                            .eq('id', logData.id);
+                    }
+                } else {
+                    console.log('Opportunity Created Successfully');
+                }
+            }
         }
 
         return NextResponse.json({
