@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
     Plus, Settings2, Trash2, X, MapPin, Database, Tag,
     RefreshCw, MousePointerClick, ChevronRight, Check,
-    ArrowDown, Zap, Play, Save, Copy, CheckCircle
+    ArrowDown, Zap, Play, Save, Copy, CheckCircle, Video
 } from "lucide-react";
 
 interface Workflow {
@@ -26,7 +26,14 @@ export default function WorkflowsPage() {
     // Builder State
     const [step, setStep] = useState(1); // 1 = Trigger, 2 = Action
     const [workflowName, setWorkflowName] = useState("Untitled Workflow");
+    const [triggerType, setTriggerType] = useState<"webhook" | "zoom">("webhook");
+    const [zoomEventType, setZoomEventType] = useState<"webinar" | "meeting">("webinar");
     const [sourceKey, setSourceKey] = useState("");
+    const [webinars, setWebinars] = useState<any[]>([]);
+    const [meetings, setMeetings] = useState<any[]>([]);
+    const [isLoadingWebinars, setIsLoadingWebinars] = useState(false);
+    const [isLoadingMeetings, setIsLoadingMeetings] = useState(false);
+
     const [emailPath, setEmailPath] = useState("email");
     const [firstNamePath, setFirstNamePath] = useState("firstName");
     const [lastNamePath, setLastNamePath] = useState("lastName");
@@ -62,6 +69,43 @@ export default function WorkflowsPage() {
         }
     };
 
+    const fetchZoomWebinars = async () => {
+        setIsLoadingWebinars(true);
+        try {
+            const res = await fetch('/api/zoom/webinars');
+            if (res.status === 401) {
+                // Not connected, redirect or show message
+                setIsLoadingWebinars(false);
+                return;
+            }
+            const data = await res.json();
+            if (data.webinars) {
+                setWebinars(data.webinars);
+            }
+        } catch (e) {
+            console.error("Failed to fetch webinars", e);
+        }
+        setIsLoadingWebinars(false);
+    };
+
+    const fetchZoomMeetings = async () => {
+        setIsLoadingMeetings(true);
+        try {
+            const res = await fetch('/api/zoom/meetings');
+            if (res.status === 401) {
+                setIsLoadingMeetings(false);
+                return;
+            }
+            const data = await res.json();
+            if (data.meetings) {
+                setMeetings(data.meetings);
+            }
+        } catch (e) {
+            console.error("Failed to fetch meetings", e);
+        }
+        setIsLoadingMeetings(false);
+    };
+
     const fetchWorkflows = async () => {
         const { data, error } = await supabase
             .from("zap_mappings")
@@ -93,6 +137,28 @@ export default function WorkflowsPage() {
             setSampleData(data.payload);
             setStep(2); // Auto-advance to action step if data found
         } else {
+            if (triggerType === 'zoom') {
+                if (confirm("No live data found for this Zoom event. Would you like to generate mock data to continue setup?")) {
+                    const mockPayload = {
+                        event: zoomEventType === 'webinar' ? 'webinar.registration_created' : 'meeting.registration_created',
+                        payload: {
+                            object: {
+                                id: sourceKey.replace(`zoom_${zoomEventType}_`, ''),
+                                topic: workflowName.replace('Reg: ', ''),
+                                registrant: {
+                                    email: "john.doe@example.com",
+                                    first_name: "John",
+                                    last_name: "Doe",
+                                    phone: "+1234567890"
+                                }
+                            }
+                        }
+                    };
+                    setSampleData(mockPayload);
+                    setStep(2);
+                    return;
+                }
+            }
             alert("No data found yet. Send a test submission to your webhook URL first!");
         }
     };
@@ -170,6 +236,15 @@ export default function WorkflowsPage() {
         setCurrentWorkflowId(w.id);
         setWorkflowName(w.name);
         setSourceKey(w.source_key);
+        if (w.source_key.startsWith('zoom_webinar_')) {
+            setTriggerType('zoom');
+            setZoomEventType('webinar');
+        } else if (w.source_key.startsWith('zoom_meeting_')) {
+            setTriggerType('zoom');
+            setZoomEventType('meeting');
+        } else {
+            setTriggerType('webhook');
+        }
         setEmailPath(w.field_map.email || "");
         setFirstNamePath(w.field_map.firstName || "");
         setLastNamePath(w.field_map.lastName || "");
@@ -220,6 +295,8 @@ export default function WorkflowsPage() {
         setCurrentWorkflowId(null);
         setStep(1);
         setWorkflowName("Untitled Workflow");
+        setTriggerType("webhook");
+        setZoomEventType("webinar");
         setSourceKey("");
         setEmailPath("email");
         setFirstNamePath("firstName");
@@ -240,6 +317,8 @@ export default function WorkflowsPage() {
     useEffect(() => {
         fetchWorkflows();
         fetchPipelines();
+        fetchZoomWebinars();
+        fetchZoomMeetings();
     }, []);
 
     const getWebhookUrl = () => {
@@ -273,9 +352,28 @@ export default function WorkflowsPage() {
         let options: { path: string, key: string, preview: string }[] = [];
         const blockList = ['id', 'token', 'event_id', 'landing_id', 'signature', 'event_type'];
 
+        // Zoom Specific Logic (Webhook payloads)
+        if (data.event && data.payload && data.payload.object) {
+            const obj = data.payload.object;
+            const registrant = obj.registrant;
+
+            if (registrant) {
+                options.push({ path: 'payload.object.registrant.email', key: 'Registrant Email', preview: registrant.email });
+                options.push({ path: 'payload.object.registrant.first_name', key: 'First Name', preview: registrant.first_name });
+                options.push({ path: 'payload.object.registrant.last_name', key: 'Last Name', preview: registrant.last_name });
+                options.push({ path: 'payload.object.registrant.phone', key: 'Phone', preview: registrant.phone });
+            }
+
+            // Also include top level fields from payload object
+            if (obj.topic) options.push({ path: 'payload.object.topic', key: 'Webinar Topic', preview: obj.topic });
+            if (obj.id) options.push({ path: 'payload.object.id', key: 'Webinar ID', preview: obj.id });
+
+            return options;
+        }
+
         // Typeform Specific Logic
         if (data.form_response && Array.isArray(data.form_response.answers)) {
-            // Create a map of Field ID -> Field Title from definition if available
+            // ... (keep existing typeform logic but ensure it returns)
             const fieldTitles: Record<string, string> = {};
             if (data.form_response.definition && Array.isArray(data.form_response.definition.fields)) {
                 data.form_response.definition.fields.forEach((f: any) => {
@@ -283,83 +381,45 @@ export default function WorkflowsPage() {
                 });
             }
 
-            // Answers
             data.form_response.answers.forEach((answer: any, index: number) => {
                 const fieldType = answer.type;
                 const value = answer[fieldType];
                 const fieldId = answer.field?.id;
-
-                // Priority: 
-                // 1. Title directly on answer
-                // 2. Title from definition lookup via ID
-                // 3. Field Ref
-                // 4. Index fallback
                 let label = answer.field?.title || fieldTitles[fieldId] || answer.field?.ref || `Question ${index + 1}`;
-
-                // Truncate long questions for the dropdown
                 if (label.length > 40) label = label.substring(0, 37) + '...';
 
                 if (value !== undefined && typeof value !== 'object') {
-                    options.push({
-                        path: `form_response.answers.${index}.${fieldType}`,
-                        key: label,
-                        preview: String(value)
-                    });
+                    options.push({ path: `form_response.answers.${index}.${fieldType}`, key: label, preview: String(value) });
                 } else if (typeof value === 'object' && value !== null) {
-                    // For choices/objects
                     if (value.label) {
-                        options.push({
-                            path: `form_response.answers.${index}.${fieldType}.label`,
-                            key: label,
-                            preview: value.label
-                        });
+                        options.push({ path: `form_response.answers.${index}.${fieldType}.label`, key: label, preview: value.label });
                     } else {
-                        options.push({
-                            path: `form_response.answers.${index}.${fieldType}`,
-                            key: label,
-                            preview: JSON.stringify(value)
-                        });
+                        options.push({ path: `form_response.answers.${index}.${fieldType}`, key: label, preview: JSON.stringify(value) });
                     }
                 } else if (fieldType === 'phone_number') {
-                    options.push({
-                        path: `form_response.answers.${index}.phone_number`,
-                        key: label,
-                        preview: answer.phone_number
-                    });
+                    options.push({ path: `form_response.answers.${index}.phone_number`, key: label, preview: answer.phone_number });
                 }
             });
 
-            // Hidden Fields
             if (data.form_response.hidden) {
                 Object.keys(data.form_response.hidden).forEach(key => {
-                    options.push({
-                        path: `form_response.hidden.${key}`,
-                        key: `Hidden: ${key}`,
-                        preview: data.form_response.hidden[key]
-                    });
+                    options.push({ path: `form_response.hidden.${key}`, key: `Hidden: ${key}`, preview: data.form_response.hidden[key] });
                 });
             }
 
-            // Calculators/Variables
             if (data.form_response.variables) {
                 Object.keys(data.form_response.variables).forEach(key => {
-                    options.push({
-                        path: `form_response.variables.${key}`,
-                        key: `Variable: ${key}`,
-                        preview: data.form_response.variables[key]
-                    });
+                    options.push({ path: `form_response.variables.${key}`, key: `Variable: ${key}`, preview: data.form_response.variables[key] });
                 });
             }
 
             return options;
         }
 
-        // Generic Fallback (Recursive flat) but filtered
         const genericOptions = getFlattenedOptions(data);
         return genericOptions.filter(opt => {
             const parts = opt.path.split('.');
             const lastPart = parts[parts.length - 1];
-            // Filter out technical keys and deep definition schemas
             return !blockList.includes(lastPart) &&
                 !opt.path.includes('definition') &&
                 !opt.path.includes('.field.id') &&
@@ -424,49 +484,121 @@ export default function WorkflowsPage() {
                                     >
                                         <div className="flex items-start gap-4">
                                             <div className="w-12 h-12 bg-white border border-gray-200 rounded-xl flex items-center justify-center shadow-sm text-2xl">
-                                                ⚡
+                                                {triggerType === 'zoom' ? <Video className="text-blue-600" size={24} /> : '⚡'}
                                             </div>
                                             <div className="flex-1">
                                                 <div className="flex justify-between items-center mb-1">
                                                     <h3 className="font-bold text-gray-900 text-lg">1. Trigger</h3>
-                                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Webhook</span>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setTriggerType('webhook'); }}
+                                                            className={`text-[10px] font-bold uppercase py-1 px-2 rounded border transition-all ${triggerType === 'webhook' ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-200'}`}
+                                                        >
+                                                            Webhook
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setTriggerType('zoom'); }}
+                                                            className={`text-[10px] font-bold uppercase py-1 px-2 rounded border transition-all ${triggerType === 'zoom' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-400 border-gray-200'}`}
+                                                        >
+                                                            Zoom
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <p className="text-gray-500 text-sm mb-4">Start workflow when data is received.</p>
+                                                <p className="text-gray-500 text-sm mb-4">
+                                                    {triggerType === 'webhook' ? 'Start workflow when data is received.' : 'Trigger when someone registers for a webinar.'}
+                                                </p>
 
                                                 {step === 1 && (
                                                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                                                        <div>
-                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Trigger ID</label>
-                                                            <input
-                                                                value={sourceKey}
-                                                                onChange={(e) => setSourceKey(e.target.value)}
-                                                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors"
-                                                            />
-                                                        </div>
-
-                                                        <div>
-                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Webhook URL</label>
-                                                            <div className="flex gap-2">
-                                                                <div className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-600 truncate">
-                                                                    {getWebhookUrl()}
+                                                        {triggerType === 'webhook' ? (
+                                                            <>
+                                                                <div>
+                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Trigger ID</label>
+                                                                    <input
+                                                                        value={sourceKey}
+                                                                        onChange={(e) => setSourceKey(e.target.value)}
+                                                                        placeholder="e.g. contact_form_1"
+                                                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors"
+                                                                    />
                                                                 </div>
-                                                                <button
-                                                                    onClick={() => navigator.clipboard.writeText(getWebhookUrl())}
-                                                                    className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-3 rounded-lg font-bold"
-                                                                    title="Copy URL"
-                                                                >
-                                                                    <Copy size={16} />
-                                                                </button>
+
+                                                                <div>
+                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Webhook URL</label>
+                                                                    <div className="flex gap-2">
+                                                                        <div className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-600 truncate">
+                                                                            {getWebhookUrl()}
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => navigator.clipboard.writeText(getWebhookUrl())}
+                                                                            className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 px-3 rounded-lg font-bold"
+                                                                            title="Copy URL"
+                                                                        >
+                                                                            <Copy size={16} />
+                                                                        </button>
+                                                                    </div>
+                                                                    <p className="text-[10px] text-gray-400 mt-2">
+                                                                        Send a <b>POST</b> request to this URL to trigger the workflow.
+                                                                    </p>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <div className="space-y-4">
+                                                                <div>
+                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Zoom Event Type</label>
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setZoomEventType('webinar'); setSourceKey(""); }}
+                                                                            className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all ${zoomEventType === 'webinar' ? 'bg-blue-50 border-blue-200 text-blue-700 ring-2 ring-blue-500/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                                                        >
+                                                                            Webinar Registration
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setZoomEventType('meeting'); setSourceKey(""); }}
+                                                                            className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all ${zoomEventType === 'meeting' ? 'bg-blue-50 border-blue-200 text-blue-700 ring-2 ring-blue-500/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                                                        >
+                                                                            Meeting Registration
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">
+                                                                        Select {zoomEventType.charAt(0).toUpperCase() + zoomEventType.slice(1)}
+                                                                    </label>
+                                                                    <select
+                                                                        value={sourceKey.replace(`zoom_${zoomEventType}_`, '')}
+                                                                        onChange={(e) => {
+                                                                            if (e.target.value) {
+                                                                                setSourceKey(`zoom_${zoomEventType}_${e.target.value}`);
+                                                                                const list = zoomEventType === 'webinar' ? webinars : meetings;
+                                                                                const item = list.find((x: any) => String(x.id) === e.target.value);
+                                                                                if (item && workflowName === "Untitled Workflow") {
+                                                                                    setWorkflowName(`Reg: ${item.topic}`);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:border-blue-500"
+                                                                    >
+                                                                        <option value="">
+                                                                            {zoomEventType === 'webinar' ? (isLoadingWebinars ? 'Loading webinars...' : 'Select a Webinar...') : (isLoadingMeetings ? 'Loading meetings...' : 'Select a Meeting...')}
+                                                                        </option>
+                                                                        {(zoomEventType === 'webinar' ? webinars : meetings).map((item: any, idx: number) => (
+                                                                            <option key={`${item.id}-${idx}`} value={item.id}>{item.topic} ({new Date(item.start_time).toLocaleDateString()})</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    {(zoomEventType === 'webinar' ? webinars : meetings).length === 0 && (zoomEventType === 'webinar' ? !isLoadingWebinars : !isLoadingMeetings) && (
+                                                                        <p className="text-[10px] text-amber-600 mt-2 font-bold">
+                                                                            No upcoming {zoomEventType}s found with registration enabled.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <p className="text-[10px] text-gray-400 mt-2">
-                                                                Send a <b>POST</b> request to this URL to trigger the workflow.
-                                                            </p>
-                                                        </div>
+                                                        )}
 
                                                         <button
                                                             onClick={fetchLatestSample}
-                                                            disabled={isLoadingSample}
-                                                            className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                                                            disabled={isLoadingSample || !sourceKey}
+                                                            className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                                                         >
                                                             {isLoadingSample ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />}
                                                             Test Trigger

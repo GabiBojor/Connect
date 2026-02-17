@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { LayoutDashboard, ScrollText, Network, Settings, Zap } from "lucide-react";
+import { LayoutDashboard, ScrollText, Network, Settings, Zap, Video } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,6 +36,10 @@ export default function RootLayout({
               <Link href="/logs" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
                 <ScrollText size={20} />
                 <span>Logs</span>
+              </Link>
+              <Link href="/integrations" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
+                <Video size={20} />
+                <span>Integrations</span>
               </Link>
               <Link href="/mappings" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
                 <Network size={20} />

@@ -17,7 +17,21 @@ export async function POST(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const payload = await req.json();
-        const sourceKey = searchParams.get('source') || payload.source || 'generic_webhook';
+
+        // Auto-identify source if it's a Zoom Webinar registration
+        let sourceKey = searchParams.get('source');
+
+        if (!sourceKey && payload.event === 'webinar.registration_created' && payload.payload?.object?.id) {
+            sourceKey = `zoom_webinar_${payload.payload.object.id}`;
+        }
+
+        if (!sourceKey && payload.event === 'meeting.registration_created' && payload.payload?.object?.id) {
+            sourceKey = `zoom_meeting_${payload.payload.object.id}`;
+        }
+
+        if (!sourceKey) {
+            sourceKey = payload.source || 'generic_webhook';
+        }
 
         console.log(`--- Incoming Webhook [${sourceKey}] ---`);
 
