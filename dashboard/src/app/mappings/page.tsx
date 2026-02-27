@@ -462,7 +462,7 @@ export default function WorkflowsPage() {
                         <input
                             value={workflowName}
                             onChange={(e) => setWorkflowName(e.target.value)}
-                            className="text-2xl font-black bg-transparent border-none outline-none placeholder:text-gray-300 text-gray-900 w-full hover:bg-white focus:bg-white rounded-lg px-2 transition-colors py-1"
+                            className="text-2xl font-black bg-transparent border-none outline-none placeholder:text-gray-300 text-black w-full hover:bg-white focus:bg-white rounded-lg px-2 transition-colors py-1"
                             placeholder="Name your workflow..."
                         />
                         <button onClick={resetBuilder} className="p-2 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
@@ -523,7 +523,7 @@ export default function WorkflowsPage() {
                                                             value={sourceKey}
                                                             onChange={(e) => setSourceKey(e.target.value)}
                                                             placeholder="e.g. contact_form_1"
-                                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono font-bold text-gray-700 outline-none focus:border-orange-500 focus:bg-white transition-all"
+                                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono font-bold text-black outline-none focus:border-orange-500 focus:bg-white transition-all"
                                                         />
                                                     </div>
 
@@ -582,7 +582,7 @@ export default function WorkflowsPage() {
                                                                     }
                                                                 }
                                                             }}
-                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 outline-none focus:border-blue-500 shadow-sm"
+                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-black outline-none focus:border-blue-500 shadow-sm"
                                                         >
                                                             <option value="">
                                                                 {zoomEventType === 'webinar' ? (isLoadingWebinars ? 'Loading...' : 'Choose a Webinar...') : (isLoadingMeetings ? 'Loading...' : 'Choose a Meeting...')}
@@ -642,7 +642,7 @@ export default function WorkflowsPage() {
                                                         value={actionType}
                                                         onChange={(e) => setActionType(e.target.value as any)}
                                                         onClick={(e) => e.stopPropagation()}
-                                                        className="bg-transparent text-blue-700 text-[9px] font-black uppercase py-0.5 px-2 rounded outline-none cursor-pointer hover:bg-white rounded-md transition-colors"
+                                                        className="bg-transparent text-black text-[9px] font-black uppercase py-0.5 px-2 rounded outline-none cursor-pointer hover:bg-white rounded-md transition-colors"
                                                     >
                                                         <option value="contact">Create Contact</option>
                                                         <option value="opportunity">Create Opportunity</option>
@@ -708,7 +708,7 @@ export default function WorkflowsPage() {
                                                         value={tagsInput}
                                                         onChange={(e) => setTagsInput(e.target.value)}
                                                         placeholder="e.g. Lead, Zoom Webinar"
-                                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-purple-500 focus:bg-white transition-all shadow-sm"
+                                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-black outline-none focus:border-purple-500 focus:bg-white transition-all shadow-sm"
                                                     />
                                                 </div>
 
@@ -729,7 +729,7 @@ export default function WorkflowsPage() {
                                                                                 setSelectedPipelineId(e.target.value);
                                                                                 setSelectedStageId(""); // Reset stage
                                                                             }}
-                                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-orange-500 shadow-sm transition-all"
+                                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold text-black outline-none focus:border-orange-500 shadow-sm transition-all"
                                                                         >
                                                                             <option value="">Select Pipeline</option>
                                                                             {pipelines.map((p: any) => (
@@ -743,7 +743,7 @@ export default function WorkflowsPage() {
                                                                             value={selectedStageId}
                                                                             onChange={(e) => setSelectedStageId(e.target.value)}
                                                                             disabled={!selectedPipelineId}
-                                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-orange-500 shadow-sm disabled:opacity-50 transition-all"
+                                                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs font-bold text-black outline-none focus:border-orange-500 shadow-sm disabled:opacity-50 transition-all"
                                                                         >
                                                                             <option value="">Select Stage</option>
                                                                             {pipelines.find((p: any) => p.id === selectedPipelineId)?.stages.map((s: any) => (
@@ -859,7 +859,7 @@ function MappingInput({ label, value, onChange, active, onFocus, options }: any)
                     <select
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 transition-colors cursor-pointer appearance-none"
+                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-black outline-none focus:border-blue-500 transition-colors cursor-pointer appearance-none"
                     >
                         <option value="">-- Select {label} --</option>
                         {options.map((opt: any) => (
@@ -889,7 +889,7 @@ function MappingInput({ label, value, onChange, active, onFocus, options }: any)
                         onChange={(e) => onChange(e.target.value)}
                         onFocus={onFocus}
                         placeholder={`Map ${label}...`}
-                        className={`w-full px-3 py-2 border rounded-lg outline-none transition-all font-mono text-xs text-gray-800 ${active
+                        className={`w-full px-3 py-2 border rounded-lg outline-none transition-all font-mono text-xs text-black ${active
                             ? 'border-blue-500 ring-2 ring-blue-50/50 bg-blue-50/10'
                             : 'bg-white border-gray-200 hover:border-gray-300 focus:border-gray-400'
                             }`}

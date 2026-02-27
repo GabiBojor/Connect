@@ -101,7 +101,7 @@ export async function getValidZoomToken(supabase: any) {
 }
 
 export async function getZoomWebinars(accessToken: string) {
-    const response = await fetch('https://api.zoom.us/v2/webinars', {
+    const response = await fetch('https://api.zoom.us/v2/users/me/webinars', {
         headers: {
             'Authorization': `Bearer ${accessToken}`,
         },
