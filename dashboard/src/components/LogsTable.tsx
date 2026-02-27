@@ -43,6 +43,13 @@ export default function LogsTableComponent() {
                     setLogs((prev) => [payload.new as Log, ...prev]);
                 }
             )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "zap_incoming_webhooks" },
+                (payload) => {
+                    setLogs((prev) => prev.map(log => log.id === payload.new.id ? payload.new as Log : log));
+                }
+            )
             .subscribe();
 
         return () => {
