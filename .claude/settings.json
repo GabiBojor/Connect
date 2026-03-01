@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kill:*)",
+      "Bash(npx next dev --help:*)",
+      "Read(//Users/bojor/**)",
+      "Bash(xargs ls:*)",
+      "mcp__supabase-mcp-server__execute_sql",
+      "mcp__supabase-mcp-serverStreet__execute_sql",
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}
