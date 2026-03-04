@@ -165,7 +165,7 @@ export async function POST(req: Request) {
         let lastName = 'Contact';
         let email = '';
         let phone = '';
-        let tags = ['Automated Webhook'];
+        let tags: string[] = [];
 
         if (mapping) {
             console.log('Using dynamic mapping:', mapping.name);
@@ -194,7 +194,7 @@ export async function POST(req: Request) {
             }
 
             if (mapping.static_data?.tags) {
-                tags = [...tags, ...mapping.static_data.tags];
+                tags = mapping.static_data.tags;
             }
         } else {
             // Fallback - Expanded for Zoom and other nested structures
