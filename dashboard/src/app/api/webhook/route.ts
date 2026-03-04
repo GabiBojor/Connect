@@ -120,6 +120,19 @@ export async function POST(req: Request) {
             .eq('is_active', true)
             .maybeSingle();
 
+        // GUARD: For Zoom events, if no automation is configured for this specific
+        // meeting/webinar ID, skip processing entirely. This prevents automations
+        // from firing on meetings they were NOT explicitly linked to.
+        const isZoomEvent = zoomEvent?.startsWith('meeting.') || zoomEvent?.startsWith('webinar.');
+        if (isZoomEvent && !mapping) {
+            console.log(`[SKIPPED] No active automation found for Zoom event source: ${sourceKey}`);
+            return NextResponse.json({
+                success: true,
+                skipped: true,
+                reason: `No active automation linked to this ${zoomEvent?.startsWith('webinar.') ? 'webinar' : 'meeting'} (${zoomId})`
+            });
+        }
+
         // 2. Log to Supabase (or reuse existing log if this is a retry)
         const retryOfId = searchParams.get('retry_of');
 
