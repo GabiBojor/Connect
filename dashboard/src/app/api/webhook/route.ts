@@ -268,7 +268,7 @@ export async function POST(req: Request) {
                     const updateResult = await ghlFetch(`${GHL_API_base}/contacts/${contactId}`, {
                         method: 'PUT',
                         headers: ghlHeaders,
-                        body: JSON.stringify({ firstName, lastName, phone, locationId: GHL_Location })
+                        body: JSON.stringify({ firstName, lastName, phone })
                     }, 'Update Contact');
 
                     if (!updateResult.ok) {
