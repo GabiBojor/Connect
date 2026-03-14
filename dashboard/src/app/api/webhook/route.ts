@@ -86,8 +86,11 @@ export async function POST(req: Request) {
         // Filter out Zoom events that don't contain actionable data (no email)
         const ignoredZoomEvents = [
             'meeting.started', 'meeting.ended',
+            'meeting.participant_joined', 'meeting.participant_left',
             'meeting.participant_jbh_waiting', 'meeting.participant_jbh_joined',
-            'meeting.participant_left'
+            'meeting.participant_admitted',
+            'webinar.started', 'webinar.ended',
+            'meeting.sharing_started', 'meeting.sharing_ended'
         ];
         if (ignoredZoomEvents.includes(payload.event)) {
             return NextResponse.json({ success: true, skipped: true, reason: 'Event type not actionable' });
@@ -170,22 +173,42 @@ export async function POST(req: Request) {
         if (mapping) {
             console.log('Using dynamic mapping:', mapping.name);
             const fm = mapping.field_map;
-            email = getDeepValue(payload, fm.email);
-            firstName = getDeepValue(payload, fm.firstName) || 'New';
-            lastName = getDeepValue(payload, fm.lastName) || 'Contact';
-            phone = getDeepValue(payload, fm.phone);
+            email = getDeepValue(payload, fm.email) || '';
+            firstName = getDeepValue(payload, fm.firstName) || '';
+            lastName = getDeepValue(payload, fm.lastName) || '';
+            phone = getDeepValue(payload, fm.phone) || '';
 
-            // Zoom fallback: if mapped path didn't find email, try alternate Zoom paths
-            if (!email && payload.payload?.object) {
-                email = payload.payload.object.participant?.email || payload.payload.object.registrant?.email;
-                const fallbackName = payload.payload.object.participant?.user_name ||
-                    `${payload.payload.object.registrant?.first_name || ''} ${payload.payload.object.registrant?.last_name || ''}`.trim();
-                if (fallbackName && firstName === 'New') firstName = fallbackName;
-                phone = phone || payload.payload.object.participant?.phone || payload.payload.object.registrant?.phone;
+            console.log('Mapped values:', { email, firstName, lastName, phone, paths: { email: fm.email, firstName: fm.firstName, lastName: fm.lastName, phone: fm.phone } });
+
+            // Zoom fallback: if mapped path didn't find values, try alternate Zoom paths
+            if (payload.payload?.object) {
+                const zoomObj = payload.payload.object;
+                if (!email) {
+                    email = zoomObj.participant?.email || zoomObj.registrant?.email || '';
+                }
+                if (!firstName) {
+                    firstName = zoomObj.registrant?.first_name || '';
+                    // If still no first name, try splitting participant user_name
+                    if (!firstName && zoomObj.participant?.user_name) {
+                        const parts = zoomObj.participant.user_name.trim().split(/\s+/);
+                        firstName = parts[0];
+                        if (!lastName) lastName = parts.slice(1).join(' ');
+                    }
+                }
+                if (!lastName) {
+                    lastName = zoomObj.registrant?.last_name || '';
+                }
+                if (!phone) {
+                    phone = zoomObj.participant?.phone || zoomObj.registrant?.phone || '';
+                }
             }
 
-            // Split full name if lastName is empty (e.g. Zoom participant has user_name but no separate first/last)
-            if (!lastName || lastName === 'Contact') {
+            // Ensure we have at least something for names
+            if (!firstName) firstName = 'New';
+            if (!lastName) lastName = 'Contact';
+
+            // Split full name if lastName is still 'Contact' (e.g. participant has user_name but no separate first/last)
+            if (lastName === 'Contact' && firstName !== 'New') {
                 const nameParts = (firstName || '').trim().split(/\s+/);
                 if (nameParts.length > 1) {
                     firstName = nameParts[0];
@@ -325,10 +348,25 @@ export async function POST(req: Request) {
                 const oppNameInput = fm.opportunityName || mapping.static_data.opportunity_name;
                 const oppValueInput = fm.opportunityCents || mapping.static_data.monetary_value;
 
-                let name = getDeepValue(payload, oppNameInput) || oppNameInput || 'New Deal';
+                // Resolve opportunity name: try as a data path first, then as literal text
+                let resolvedOppName = getDeepValue(payload, oppNameInput);
+                let name: string;
+                if (resolvedOppName !== undefined && resolvedOppName !== null && String(resolvedOppName).trim() !== '') {
+                    // Successfully resolved data from the path (e.g. got "Cristina" from payload.object.registrant.first_name)
+                    name = String(resolvedOppName);
+                } else if (oppNameInput && !looksLikePath(oppNameInput)) {
+                    // It's a literal template string like "New Lead: {{name}}", not a data path
+                    name = oppNameInput;
+                } else {
+                    // Path didn't resolve and value looks like a path — use a sensible default
+                    name = `${firstName} ${lastName}`.trim() || 'New Deal';
+                }
                 name = name.replace('{{name}}', `${firstName} ${lastName}`);
+                
                 let monetaryValue = Number(getDeepValue(payload, oppValueInput) || oppValueInput || 0);
                 if (isNaN(monetaryValue)) monetaryValue = 0;
+
+                console.log('Opportunity Name Resolution:', { oppNameInput, resolvedOppName, finalName: name });
 
                 if (!mapping.static_data.pipeline_id || !mapping.static_data.stage_id) {
                     throw new Error('Missing Pipeline ID or Stage ID for Opportunity');
@@ -507,7 +545,7 @@ export async function POST(req: Request) {
 }
 
 
-function getDeepValue(obj: any, path: string) {
+function getDeepValue(obj: any, path: string): any {
     if (!path) return undefined;
     const parts = path.split('.');
     let current = obj;
@@ -516,4 +554,14 @@ function getDeepValue(obj: any, path: string) {
         current = current[part];
     }
     return current;
+}
+
+// Helper: checks if a string looks like a data path (e.g. "payload.object.registrant.first_name")
+// vs. a literal text (e.g. "New Lead: {{name}}")
+function looksLikePath(value: string): boolean {
+    if (!value) return false;
+    // If it contains dots and every segment is a valid identifier, it's likely a path
+    const parts = value.split('.');
+    if (parts.length < 2) return false;
+    return parts.every(p => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(p));
 }
