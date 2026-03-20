@@ -18,6 +18,19 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS(request: Request) {
+    return new NextResponse(null, {
+        status: 204,
+        headers: corsHeaders
+    });
+}
+
 function isRateLimited(ip: string): boolean {
     const now = Date.now();
     const entry = rateLimitMap.get(ip);
@@ -60,7 +73,7 @@ export async function POST(req: Request) {
         // Rate limiting
         const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
         if (isRateLimited(ip)) {
-            return NextResponse.json({ error: 'Rate limit exceeded. Max 60 requests per minute.' }, { status: 429 });
+            return NextResponse.json({ error: 'Rate limit exceeded. Max 60 requests per minute.' }, { status: 429, headers: corsHeaders });
         }
 
         const { searchParams } = new URL(req.url);
@@ -79,7 +92,7 @@ export async function POST(req: Request) {
                 return NextResponse.json({
                     plainToken,
                     encryptedToken
-                }, { status: 200 });
+                }, { status: 200, headers: corsHeaders });
             }
         }
 
@@ -93,7 +106,7 @@ export async function POST(req: Request) {
             'meeting.sharing_started', 'meeting.sharing_ended'
         ];
         if (ignoredZoomEvents.includes(payload.event)) {
-            return NextResponse.json({ success: true, skipped: true, reason: 'Event type not actionable' });
+            return NextResponse.json({ success: true, skipped: true, reason: 'Event type not actionable' }, { headers: corsHeaders });
         }
 
         // Auto-identify source if it's a Zoom Webinar/Meeting event
@@ -133,7 +146,7 @@ export async function POST(req: Request) {
                 success: true,
                 skipped: true,
                 reason: `No active automation linked to this ${zoomEvent?.startsWith('webinar.') ? 'webinar' : 'meeting'} (${zoomId})`
-            });
+            }, { headers: corsHeaders });
         }
 
         // 2. Log to Supabase (or reuse existing log if this is a retry)
@@ -326,7 +339,7 @@ export async function POST(req: Request) {
                         .eq('id', logData.id);
                 }
 
-                return NextResponse.json({ success: false, error: errMsg }, { status: ghlResult.status || 500 });
+                return NextResponse.json({ success: false, error: errMsg }, { status: ghlResult.status || 500, headers: corsHeaders });
             }
         }
 
@@ -484,7 +497,7 @@ export async function POST(req: Request) {
                         opportunity_status: opportunityStatus,
                         opportunity_error: opportunityError
                     }
-                });
+                }, { headers: corsHeaders });
             } else {
                 console.warn('Skipping Opportunity: No Contact ID returned from GHL');
                 if (logData) {
@@ -525,7 +538,7 @@ export async function POST(req: Request) {
                 contact_created: !!contactId,
                 opportunity_attempted: mapping?.static_data?.action_type === 'opportunity'
             }
-        });
+        }, { headers: corsHeaders });
 
     } catch (error: any) {
         console.error('Webhook Error:', error);
@@ -540,7 +553,7 @@ export async function POST(req: Request) {
                 .eq('id', logData.id);
         }
 
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }
 
